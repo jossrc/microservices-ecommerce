@@ -1,0 +1,10 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="OrderServiceApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" singleton="false" nameIsGenerated="true">
+    <module name="order-service" />
+    <option name="SPRING_BOOT_MAIN_CLASS" value="com.ecommerce.order_service.OrderServiceApplication" />
+    <option name="VM_PARAMETERS" value="-Dserver.port=0 -Deureka.instance.instance-id=${spring.application.name}:${random.uuid}" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

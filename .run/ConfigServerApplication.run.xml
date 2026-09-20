@@ -1,0 +1,14 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="ConfigServerApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
+    <envs>
+      <env name="GITHUB_USER" value="jossrc" />
+      <env name="GITHUB_TOKEN" value="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" />
+    </envs>
+    <module name="config-server" />
+    <option name="SPRING_BOOT_MAIN_CLASS" value="com.ecommerce.config_server.ConfigServerApplication" />
+    <option name="VM_PARAMETERS" value="-DGITHUB_USER=jossrc -DGITHUB_TOKEN=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" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>
