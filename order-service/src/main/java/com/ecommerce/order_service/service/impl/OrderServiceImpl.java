@@ -6,6 +6,7 @@ import com.ecommerce.order_service.event.OrderPlacedEvent;
 import com.ecommerce.order_service.exception.ResourceNotFoundException;
 import com.ecommerce.order_service.mapper.OrderMapper;
 import com.ecommerce.order_service.model.Order;
+import com.ecommerce.order_service.model.OrderStatus;
 import com.ecommerce.order_service.repository.OrderRepository;
 import com.ecommerce.order_service.service.OrderService;
 import com.ecommerce.order_service.service.annotation.InventoryClient;
@@ -75,6 +76,7 @@ public class OrderServiceImpl implements OrderService {
 //        }
 
         order.setOrderNumber(UUID.randomUUID().toString());
+        order.setStatus(OrderStatus.PLACED);
         Order savedOrder = orderRepository.save(order);
 
         log.info("Orden guardada con éxito. ID: {}", savedOrder.getId());
@@ -141,6 +143,24 @@ public class OrderServiceImpl implements OrderService {
 
         orderRepository.deleteById(id);
         log.info("Orden eliminada. ID: {}", id);
+    }
+
+    @Transactional
+    @Override
+    public void updateOrderStatus(String orderNumber, OrderStatus newStatus) {
+
+        orderRepository.findByOrderNumber(orderNumber)
+                .ifPresentOrElse(
+                        order -> {
+                            order.setStatus(newStatus);
+                            orderRepository.save(order);
+                            log.info("Estado actualizado en BD para la orden: {}", orderNumber);
+                        },
+                        () -> log.error("No se encontró la orden {} para actualizar", orderNumber)
+                );
+
+
+
     }
 
 

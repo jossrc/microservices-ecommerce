@@ -1,11 +1,13 @@
 package com.ecommerce.inventory_service.listener;
 
 
+import com.ecommerce.inventory_service.event.OrderCancelledEvent;
 import com.ecommerce.inventory_service.event.OrderPlacedEvent;
 import com.ecommerce.inventory_service.service.InventoryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Component;
 
 @RequiredArgsConstructor
@@ -15,18 +17,44 @@ public class OrderEventsListener {
 
     private final InventoryService inventoryService;
 
+    private final RabbitTemplate rabbitTemplate;
+
 
     @RabbitListener(queues = "inventory-queue")
     public void handleOrderPlacedEvent(OrderPlacedEvent event) {
         log.info("Evento recibido en inventario para Orden: {}", event.orderNumber());
-        event.items().forEach( item -> {
-            try {
-                inventoryService.reduceStock(item.sku(), item.quantity());
-                log.info("Stock descontado para SKU: {} - Cantidad: {}", item.sku(), item.quantity());
-            }    catch (Exception e) {
-                log.error("Error al descontar stock para SKU: {}", item.sku(), e);
+
+        try {
+
+            boolean allProductsInStocks = event.items().stream()
+                    .allMatch(item -> inventoryService.isInStock(item.sku(), item.quantity()));
+
+            if (!allProductsInStocks) {
+                cancelOrder(event, "Stock insuficiente en uno o más productos");
+                return;
             }
-        });
+
+            event.items().forEach(item -> {
+                inventoryService.reduceStock(item.sku(), item.quantity());
+            });
+
+            rabbitTemplate.convertAndSend("order-events", "order.confirmed", event);
+
+            log.info("Stock descontado para Orden número: {}", event.orderNumber());
+        }    catch (Exception e) {
+            log.error("Error al descontar stock para SKU: {}", event.orderNumber(), e);
+            cancelOrder(event, "Error técnico en el procesamiento de inventario");
+        }
+
+    }
+
+
+    private void cancelOrder(OrderPlacedEvent event, String reason) {
+        OrderCancelledEvent cancelledEvent = new OrderCancelledEvent(
+                event.orderNumber(), event.email(), reason
+        );
+
+        rabbitTemplate.convertAndSend("order-events", "order.cancelled", cancelledEvent);
     }
 
 }
