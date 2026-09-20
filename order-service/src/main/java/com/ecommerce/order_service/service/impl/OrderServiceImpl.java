@@ -8,12 +8,15 @@ import com.ecommerce.order_service.model.Order;
 import com.ecommerce.order_service.repository.OrderRepository;
 import com.ecommerce.order_service.service.OrderService;
 import com.ecommerce.order_service.service.annotation.InventoryClient;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.context.config.annotation.RefreshScope;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
@@ -27,11 +30,18 @@ public class OrderServiceImpl implements OrderService {
     private final OrderMapper orderMapper;
     private final InventoryClient inventoryClient;
 
+    public OrderResponse fallbackMethod(OrderRequest orderRequest, String userId, Throwable throwable) {
+        log.error("Circuit Breaker activado. Causa: {}", throwable.getMessage());
+
+        return new OrderResponse(0L, "00000", Collections.emptyList());
+    }
+
     @Value("${order.enabled:true}")
     private boolean ordersEnabled;
 
     @Override
     @Transactional
+    @CircuitBreaker(name = "inventory", fallbackMethod = "fallbackMethod") // mismo nombre que en order-service.yml
     public OrderResponse placeOrder(OrderRequest orderRequest, String userId) {
 
         if (!ordersEnabled) {
