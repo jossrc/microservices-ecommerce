@@ -150,6 +150,77 @@ Commit + push de `config-data`, reiniciar Config Server y `product-service`.
 
 **Regla:** `refresh` viene de Config Client; `health` de Actuator. No hace falta otra librería para esos dos.
 
+## 13. Puerto 8080: Config Server en YAML pero sin la librería
+
+**Síntoma:** `notification-service` falla con `Port 8080 was already in use` (Keycloak). En GitHub y en `http://localhost:8888/notification-service/default` sí está `"server.port":0`. El push está hecho.
+
+**Causa:** En `application.yaml` local tenías:
+
+```yaml
+spring:
+  config:
+    import: optional:configserver:http://localhost:8888
+```
+
+pero el `pom` **no** tenía `spring-cloud-starter-config`. Sí tenía Eureka. Eureka **no** incluye Config Client.
+
+Sin esa dependencia, el prefijo `configserver:` no se resuelve. Como el import es `optional:`, Spring **no truena**: ignora el Config Server y arranca sin `server.port` → 8080.
+
+**Solución:** Añadir al `pom` (la versión sale de `spring-cloud-dependencies`):
+
+```xml
+<dependency>
+    <groupId>org.springframework.cloud</groupId>
+    <artifactId>spring-cloud-starter-config</artifactId>
+</dependency>
+```
+
+Reload Maven y reiniciar el servicio. En el log debe cargar `notification-service.yml` y Tomcat en un puerto aleatorio.
+
+**Regla:** `spring.config.import: configserver:` exige **tres** cosas a la vez: librería Config Client, `spring.application.name` igual al YAML remoto, y Config Server arriba. Si falta la librería, `optional:` lo disfraza de “puerto 8080” o “no hay datasource”.
+
+---
+
+## Checklist: librería + config al copiar un servicio
+
+Antes de levantar un módulo nuevo (o copiado), recorre esto. El síntoma casi nunca dice “falta el starter X”.
+
+| Quieres… | Librería (`pom`) | Config local y/o `config-data` |
+|---|---|---|
+| Leer Config Server | `spring-cloud-starter-config` | `spring.application.name` + `spring.config.import: configserver:http://localhost:8888`. BOM `spring-cloud-dependencies`. |
+| Registrarse en Eureka | `spring-cloud-starter-netflix-eureka-client` | `eureka.client.service-url.defaultZone` |
+| Actuator `/health`, `/refresh` | `spring-boot-starter-actuator` (+ Config Client para `refresh`) | `management.endpoints.web.exposure.include: health,refresh` (coma, no espacio) |
+| MapStruct + Spring | `mapstruct` **y** `mapstruct-processor` en `annotationProcessorPaths` | `@Mapper(componentModel = "spring")`. Con Lombok: `lombok-mapstruct-binding`. |
+| Validar JWT (resource server) | `spring-boot-starter-oauth2-resource-server` | `spring.security.oauth2.resourceserver.jwt.issuer-uri` |
+| Gateway OAuth2 + rutas | `spring-cloud-starter-gateway-server-webflux` + oauth2 | Rutas `Path=` y `SecurityWebFilterChain` |
+| RabbitMQ | `spring-boot-starter-amqp` | host/port/user de Rabbit |
+
+**Cómo cazar el olvido (mismo patrón que este bug):**
+
+1. “En Config Server / GitHub sí está la propiedad, pero la app se comporta como si no.” → el cliente **no está cargando** esa config. Mira el `pom`, no solo el YAML.
+2. Busca en el `pom` de un servicio que **sí funciona** (p. ej. `order-service`) el starter que falta en el nuevo.
+3. En el log de arranque: si no aparece *Fetching config from server at http://localhost:8888*, Config Client no está activo.
+4. Evita `optional:` hasta que el servicio ya lea config. Sin `optional:`, falta de librería o de Config Server falla **al instante** en vez de arrancar en 8080.
+5. Tras añadir un starter: Maven Reload + Rebuild. La config remota no llega por magia al `pom`.
+
+**Plantilla mínima de un servicio que usa Config Server:**
+
+```yaml
+# src/main/resources/application.yaml
+spring:
+  application:
+    name: nombre-exacto-del-yml-remoto
+  config:
+    import: configserver:http://localhost:8888
+```
+
+```xml
+<dependency>
+    <groupId>org.springframework.cloud</groupId>
+    <artifactId>spring-cloud-starter-config</artifactId>
+</dependency>
+```
+
 ---
 
 ## Checklist Config Server
@@ -159,5 +230,5 @@ Commit + push de `config-data`, reiniciar Config Server y `product-service`.
 3. Commit (y push si el URI es GitHub).
 4. Reiniciar Config Server (cachea el clone).
 5. Comprobar `http://localhost:8888/{app}/default`.
-6. Cliente: `spring.config.import: configserver:http://localhost:8888`.
-7. Orden de arranque: Config Server → resto.
+6. Cliente: `spring-cloud-starter-config` en el `pom` **y** `spring.config.import: configserver:http://localhost:8888`.
+7. Orden de arranque: Config Server → resto. Eureka no sustituye a Config Client.

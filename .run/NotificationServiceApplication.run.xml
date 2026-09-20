@@ -2,6 +2,7 @@
   <configuration default="false" name="NotificationServiceApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
     <module name="notification-service" />
     <option name="SPRING_BOOT_MAIN_CLASS" value="com.ecommerce.notification_service.NotificationServiceApplication" />
+    <option name="VM_PARAMETERS" value="-Dspring.profiles.active=prod" />
     <method v="2">
       <option name="Make" enabled="true" />
     </method>
